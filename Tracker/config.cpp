@@ -27,7 +27,6 @@ void config_t::fill_maps(const config_t* v)
 			{ "anonymous_scrape", &anonymous_scrape_, false },
 			{ "daemon", &daemon_, true },
 			{ "debug", &debug_, false },
-			{ "freetorrent", &freetorrent_, false },
 			{ "full_scrape", &full_scrape_, false },
 			{ "gzip_scrape", &gzip_scrape_, true },
 			{ "log_access", &log_access_, false },
