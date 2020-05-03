@@ -17,6 +17,7 @@ public:
 	bool auto_register_;
 	bool daemon_;
 	bool debug_;
+	bool freetorrent_;
 	bool full_scrape_;
 	bool gzip_scrape_;
 	bool log_access_;
