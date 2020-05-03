@@ -691,33 +691,18 @@ string srv_insert_peer(const tracker_input_t& v, bool udp, user_t* user)
 			&& v.downloaded_ >= p->downloaded
 			&& v.uploaded_ >= p->uploaded)
 		{
-			if (t.freetorrent == 1) 
-			{
-			downloaded = 0;
+			downloaded = g_config.freetorrent_ && file.freetorrent ? 0 : v.downloaded_ - p->downloaded;
 			uploaded = v.uploaded_ - p->uploaded;
-			}
-			else if (t.freetorrent == 2) 
-  			{
-			downloaded = 0;
-			uploaded = 0;
-			} 
-			else 
-			{
-			downloaded = v.downloaded_ - p->downloaded;
-			uploaded = v.uploaded_ - p->uploaded;
-			}
-			all_downloaded = v.downloaded_ - p->downloaded;
-			all_uploaded = v.uploaded_ - p->uploaded;
 			timespent = srv_time() - p->mtime;
 			if (v.left_ || v.event_ == tracker_input_t::e_completed)
-                		leechtime = srv_time() - p->mtime;
-            			else
+                leechtime = srv_time() - p->mtime;
+            else
 				seedtime = srv_time() - p->mtime;                   
-				if ((all_downloaded || all_uploaded) && timespent)
-				{
-					upspeed = all_uploaded / timespent;
-					downspeed = all_downloaded / timespent;										
-				}
+			if ((all_downloaded || all_uploaded) && timespent)
+			{
+				upspeed = uploaded / timespent;
+				downspeed = downloaded / timespent;										
+			}
 			
 		}
 		g_torrents_users_updates_buffer += make_query(g_database, "(?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?),",
