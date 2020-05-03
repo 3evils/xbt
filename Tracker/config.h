@@ -22,7 +22,6 @@ public:
 	bool log_access_;
 	bool log_announce_;
 	bool log_scrape_;
-	bool freetorrent_;
 	int announce_interval_;
 	int clean_up_interval_;
 	int read_config_interval_;
