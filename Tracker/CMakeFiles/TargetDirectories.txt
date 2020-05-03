@@ -1,9 +1,0 @@
-/var/www/xbt/Tracker/CMakeFiles/install/strip.dir
-/var/www/xbt/Tracker/CMakeFiles/install.dir
-/var/www/xbt/Tracker/CMakeFiles/package.dir
-/var/www/xbt/Tracker/CMakeFiles/install/local.dir
-/var/www/xbt/Tracker/CMakeFiles/xbt_tracker.dir
-/var/www/xbt/Tracker/CMakeFiles/package_source.dir
-/var/www/xbt/Tracker/CMakeFiles/edit_cache.dir
-/var/www/xbt/Tracker/CMakeFiles/rebuild_cache.dir
-/var/www/xbt/Tracker/CMakeFiles/list_install_components.dir
