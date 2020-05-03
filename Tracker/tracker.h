@@ -66,7 +66,6 @@ struct peer_t
 	long long downloaded;
 	long long uploaded;
 	time_t mtime = 0;
-	bool freeleech = false;
 	int uid;
 	short port;
 	bool left;
