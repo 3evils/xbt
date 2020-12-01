@@ -51,7 +51,7 @@ static bool g_read_users_wait_time;
 static const char g_service_name[] = "XBT Tracker";
 
 void accept(const Csocket&);
-	
+
 template<class... A>
 static void async_query(const A&... a)
 {
@@ -153,9 +153,9 @@ void read_config()
 		g_database.set_name("uid", g_config.column_users_uid_);
 		g_database.set_name("announce_log", g_config.table_announce_log_.empty() ? g_table_prefix + "announce_log" : g_config.table_announce_log_);
 		g_database.set_name("scrape_log", g_config.table_scrape_log_.empty() ? g_table_prefix + "scrape_log" : g_config.table_scrape_log_);
-		g_database.set_name("torrents", g_config.table_torrents_.empty() ? g_table_prefix + "torrents" : g_config.table_torrents_);
-		g_database.set_name("torrents_users", g_config.table_torrents_users_.empty() ? g_table_prefix + "peers" : g_config.table_torrents_users_);
-		g_database.set_name("users", g_config.table_users_.empty() ? g_table_prefix + "users" : g_config.table_users_);
+		g_database.set_name("torrents", g_config.table_torrents_.empty() ? "torrents" : g_config.table_torrents_);
+		g_database.set_name("torrents_users", g_config.table_torrents_users_.empty() ? "files_users" : g_config.table_torrents_users_);
+		g_database.set_name("users", g_config.table_users_.empty() ? "users" : g_config.table_users_);
 	}
 	catch (bad_query&)
 	{
@@ -174,12 +174,12 @@ void read_db_torrents()
 	{
 		if (!g_config.auto_register_)
 		{
-			for (auto row : query(g_database, "select info_hash, @tid from @torrents where flags & 2"))
+			for (auto row : query(g_database, "select info_hash, id from torrents where flags & 2"))
 			{
 			    if (row[2].i() == 1)
             			{
 				g_torrents.erase(to_array<char, 20>(row[0]));
-				query("delete from @torrents where @tid = ?", row[1]);
+				query("delete from torrents where id = ?", row[1]);
             			}
             			else
             			{
@@ -187,13 +187,13 @@ void read_db_torrents()
 						torrent_t& t = g_torrents[to_array<char, 20>(row[0])];
             					t.freetorrent = row[2].i();
             				}
-				query(g_database, "update @torrents set flags = ~2 where tid =?", row[1].i());
+				query(g_database, "update torrents set flags = ~2 where id =?", row[1].i());
 				}
 			}
 		}
 		if (g_config.auto_register_ && !g_torrents.empty())
 			return;
-		for (auto row : query("select info_hash, @completed, @tid, ctime, freetorrent from @torrents where @tid >= ?", g_tid_end))
+		for (auto row : query("select info_hash, Snatched, id, ctime, freetorrent from torrents where id >= ?", g_tid_end))
 		{
 			g_tid_end = max<int>(g_tid_end, row[2].i() + 1);
 			if (row[0].size() != 20 || find_torrent(row[0]))
@@ -218,7 +218,7 @@ void read_db_users()
 	g_read_db_users_time = srv_time();
 	try
 	{
-		Csql_query q(g_database, "select @uid");
+		Csql_query q(g_database, "select id");
 		if (g_read_users_can_leech)
 			q += ", can_leech";
 		if (g_read_users_peers_limit)
@@ -228,7 +228,7 @@ void read_db_users()
 		q += ", torrent_pass_version";
 		if (g_read_users_wait_time)
 			q += ", wait_time";
-		q += " from @users";
+		q += " from users";
 		Csql_result result = q.execute();
 		g_users.reserve(result.size());
 		for (auto& i : g_users)
@@ -287,7 +287,7 @@ void write_db_torrents()
 					continue;
 				if (!t.tid)
 				{
-					query("insert into @torrents (info_hash, mtime, ctime) values (?, unix_timestamp(), unix_timestamp())", i.first);
+					query("insert into torrents (info_hash, mtime, ctime) values (?, unix_timestamp(), unix_timestamp())", i.first);
 					t.tid = g_database.insert_id();
 				}
 				buffer += make_query(g_database, "(?,?,?,?),", t.leechers, t.seeders, t.completed, t.tid);
@@ -298,11 +298,11 @@ void write_db_torrents()
 			if (buffer.empty())
 				break;
 			buffer.pop_back();
-			async_query("insert ignore into @torrents (@leechers, @seeders, @completed, @tid) values ?"
+			async_query("insert ignore into torrents (leechers, seeders, Snatched, id) values ?"
 				" on duplicate key update"
 				"  @leechers = values(@leechers),"
 				"  @seeders = values(@seeders),"
-				"  @completed = values(@completed),"
+				"  Snatched = values(@completed),"
 				"  mtime = unix_timestamp()", raw(buffer));
 			buffer.clear();
 		}
@@ -313,13 +313,13 @@ void write_db_torrents()
 	if (!g_announce_log_buffer.empty())
 	{
 		g_announce_log_buffer.pop_back();
-		async_query("insert delayed into @announce_log (ipa, port, event, info_hash, peer_id, downloaded, left0, uploaded, uid, mtime) values ?", raw(g_announce_log_buffer));
+		async_query("insert delayed into xbt_announce_log (ipa, port, event, info_hash, peer_id, downloaded, left0, uploaded, uid, mtime) values ?", raw(g_announce_log_buffer));
 		g_announce_log_buffer.erase();
 	}
 	if (!g_scrape_log_buffer.empty())
 	{
 		g_scrape_log_buffer.pop_back();
-		async_query("insert delayed into @scrape_log (ipa, uid, mtime) values ?", raw(g_scrape_log_buffer));
+		async_query("insert delayed into xbt_scrape_log (ipa, uid, mtime) values ?", raw(g_scrape_log_buffer));
 		g_scrape_log_buffer.erase();
 	}
 }
@@ -330,7 +330,7 @@ void write_db_users()
 	if (!g_torrents_users_updates_buffer.empty())
 	{
 		g_torrents_users_updates_buffer.pop_back();
-		async_query("insert ignore into @torrents_users (active, announced, completed, completedtime, peer_id, upspeed, downspeed, leechtime, seedtime, ipa, downloaded, `left`, uploaded, mtime, started, tid, uid) values ?"
+		async_query("insert ignore into xbt_files_users (active, announced, completed, completedtime, peer_id, upspeed, downspeed, leechtime, seedtime, ipa, downloaded, `left`, uploaded, mtime, started, fid, uid) values ?"
 			" on duplicate key update"
 			"  active = values(active),"
 			"  announced = announced + values(announced),"
@@ -348,11 +348,11 @@ void write_db_users()
 			"  mtime = values(mtime)", raw(g_torrents_users_updates_buffer));
 		g_torrents_users_updates_buffer.erase();
 	}
-	async_query("update ignore @torrents_users set active = 0 where mtime < unix_timestamp() - 60 * 60");
+	async_query("update ignore xbt_files_users set active = 0 where mtime < unix_timestamp() - 60 * 60");
 	if (!g_users_updates_buffer.empty())
 	{
 		g_users_updates_buffer.pop_back();
-		async_query("insert ignore into @users (downloaded, uploaded, @uid) values ?"
+		async_query("insert ignore into xbt_files_users (downloaded, uploaded, id) values ?"
 			" on duplicate key update"
 			"  downloaded = downloaded + values(downloaded),"
 			"  uploaded = uploaded + values(uploaded)", raw(g_users_updates_buffer));
@@ -368,17 +368,17 @@ int test_sql()
 		if (g_config.log_announce_)
 			query("select id, ipa, port, event, info_hash, peer_id, downloaded, left0, uploaded, uid, mtime from @announce_log where 0");
 		query("select name, value from @config where 0");
-		query("select @tid, info_hash, @leechers, @seeders, flags, mtime, ctime, freetorrent from @torrents where 0");
-		query("select tid, uid, active, completed, downloaded, `left`, uploaded from @torrents_users where 0");
+		query("select id, info_hash, leechers, seeders, flags, mtime, ctime, freetorrent from torrents where 0");
+		query("select fid, uid, active, completed, downloaded, `left`, uploaded from xbt_files_users where 0");
 		if (g_config.log_scrape_)
 			query("select id, ipa, uid, mtime from @scrape_log where 0");
-		query("select @uid, torrent_pass_version, downloaded, uploaded from @users where 0");
-		query("update ignore @torrents set @leechers = 0, @seeders = 0");
-		// query("update @torrents_users set active = 0");
-		g_read_users_can_leech = query("show columns from @users like 'can_leech'").size();
-		g_read_users_peers_limit = query("show columns from @users like 'peers_limit'").size();
-		g_read_users_torrent_pass = query("show columns from @users like 'torrent_pass'").size();
-		g_read_users_wait_time = query("show columns from @users like 'wait_time'").size();
+		query("select id, torrent_pass_version, downloaded, uploaded from users where 0");
+		query("update ignore torrents set leechers = 0, seeders = 0");
+		// query("update xbt_files_users set active = 0");
+		g_read_users_can_leech = query("show columns from users like 'can_leech'").size();
+		g_read_users_peers_limit = query("show columns from users like 'peers_limit'").size();
+		g_read_users_torrent_pass = query("show columns from users like 'torrent_pass'").size();
+		g_read_users_wait_time = query("show columns from users like 'wait_time'").size();
 		return 0;
 	}
 	catch (bad_query&)
@@ -691,19 +691,19 @@ string srv_insert_peer(const tracker_input_t& v, bool udp, user_t* user)
 			&& v.downloaded_ >= p->downloaded
 			&& v.uploaded_ >= p->uploaded)
 		{
-			downloaded = g_config.freetorrent_ && file.freetorrent ? 0 : v.downloaded_ - p->downloaded;
+			downloaded = v.downloaded_ - p->downloaded;
 			uploaded = v.uploaded_ - p->uploaded;
 			timespent = srv_time() - p->mtime;
 			if (v.left_ || v.event_ == tracker_input_t::e_completed)
                 leechtime = srv_time() - p->mtime;
             else
-				seedtime = srv_time() - p->mtime;                   
+				seedtime = srv_time() - p->mtime;
 			if ((all_downloaded || all_uploaded) && timespent)
 			{
 				upspeed = uploaded / timespent;
-				downspeed = downloaded / timespent;										
+				downspeed = downloaded / timespent;
 			}
-			
+
 		}
 		g_torrents_users_updates_buffer += make_query(g_database, "(?,1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?),",
 			v.event_ != tracker_input_t::e_stopped,
