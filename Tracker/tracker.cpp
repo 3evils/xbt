@@ -352,7 +352,7 @@ void write_db_users()
 	if (!g_users_updates_buffer.empty())
 	{
 		g_users_updates_buffer.pop_back();
-		async_query("insert ignore into xbt_files_users (downloaded, uploaded, id) values ?"
+		async_query("insert ignore into @users (downloaded, uploaded, id) values ?"
 			" on duplicate key update"
 			"  downloaded = downloaded + values(downloaded),"
 			"  uploaded = uploaded + values(uploaded)", raw(g_users_updates_buffer));
